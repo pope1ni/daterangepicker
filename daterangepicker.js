@@ -1,9 +1,11 @@
 /**
-* @version: 3.0.5
+* @version: 3.0.5.1
 * @author: Dan Grossman http://www.dangrossman.info/
 * @copyright: Copyright (c) 2012-2019 Dan Grossman. All rights reserved.
 * @license: Licensed under the MIT license. See http://www.opensource.org/licenses/mit-license.php
 * @website: http://www.daterangepicker.com/
+*
+* Month view mode added by Rony Klachko, updated by Nick Pope.
 */
 // Following the UMD template https://github.com/umdjs/umd/blob/master/templates/returnExportsGlobal.js
 (function (root, factory) {
@@ -29,13 +31,15 @@
         root.daterangepicker = factory(root.moment, root.jQuery);
     }
 }(this, function(moment, $) {
+    'use strict';
     var DateRangePicker = function(element, options, cb) {
 
         //default settings for options
         this.parentEl = 'body';
         this.element = $(element);
-        this.startDate = moment().startOf('day');
-        this.endDate = moment().endOf('day');
+        this.minViewMode = 'day';
+        this.startDate = moment().startOf(this.minViewMode);
+        this.endDate = moment().endOf(this.minViewMode);
         this.minDate = false;
         this.maxDate = false;
         this.maxSpan = false;
@@ -123,6 +127,10 @@
         // handle all the possible options overriding defaults
         //
 
+        if (typeof options.minViewMode === 'string') {
+            this.minViewMode = options.minViewMode;
+        }
+
         if (typeof options.locale === 'object') {
 
             if (typeof options.locale.direction === 'string')
@@ -185,6 +193,11 @@
 
         if (typeof options.maxDate === 'object')
             this.maxDate = moment(options.maxDate);
+
+        this.startDate = this.startDate.startOf(this.minViewMode);
+        this.endDate = this.endDate.endOf(this.minViewMode);
+        if (this.minDate) this.minDate = this.minDate.startOf(this.minViewMode);
+        if (this.maxDate) this.maxDate = this.maxDate.endOf(this.minViewMode);
 
         // sanity check for bad options
         if (this.minDate && this.startDate.isBefore(this.minDate))
@@ -311,6 +324,13 @@
             }
         }
 
+        // Forcibly disable options that are incompatible with the month view.
+        if (this.minViewMode === 'month') {
+            this.showISOWeekNumbers = false;
+            this.showWeekNumbers = false;
+            this.timePicker = false;
+        }
+
         if (typeof options.ranges === 'object') {
             for (range in options.ranges) {
 
@@ -337,9 +357,12 @@
 
                 // If the end of the range is before the minimum or the start of the range is
                 // after the maximum, don't display this range option at all.
-                if ((this.minDate && end.isBefore(this.minDate, this.timepicker ? 'minute' : 'day'))
-                  || (maxDate && start.isAfter(maxDate, this.timepicker ? 'minute' : 'day')))
+                if ((this.minDate && end.isBefore(this.minDate, this.timepicker ? 'minute' : this.minViewMode))
+                  || (maxDate && start.isAfter(maxDate, this.timepicker ? 'minute' : this.minViewMode)))
                     continue;
+
+                // If showing the month view, remove ranges that are less than one month.
+                if (this.minViewMode === 'month' && end.clone().add(1, 'day').diff(start, 'month') < 1) continue;
 
                 //Support unicode chars in the range names.
                 var elem = document.createElement('textarea');
@@ -365,8 +388,8 @@
         }
 
         if (!this.timePicker) {
-            this.startDate = this.startDate.startOf('day');
-            this.endDate = this.endDate.endOf('day');
+            this.startDate = this.startDate.startOf(this.minViewMode);
+            this.endDate = this.endDate.endOf(this.minViewMode);
             this.container.find('.calendar-time').hide();
         }
 
@@ -458,7 +481,7 @@
                 this.startDate = moment(startDate);
 
             if (!this.timePicker)
-                this.startDate = this.startDate.startOf('day');
+                this.startDate = this.startDate.startOf(this.minViewMode);
 
             if (this.timePicker && this.timePickerIncrement)
                 this.startDate.minute(Math.round(this.startDate.minute() / this.timePickerIncrement) * this.timePickerIncrement);
@@ -539,13 +562,15 @@
         },
 
         updateMonthsInView: function() {
+            var format = this.minViewMode === 'month' ? 'YYYY' : 'YYYY-MM';
+            var unit = this.minViewMode === 'month' ? 'year' : 'month';
             if (this.endDate) {
 
                 //if both dates are visible already, do nothing
                 if (!this.singleDatePicker && this.leftCalendar.month && this.rightCalendar.month &&
-                    (this.startDate.format('YYYY-MM') == this.leftCalendar.month.format('YYYY-MM') || this.startDate.format('YYYY-MM') == this.rightCalendar.month.format('YYYY-MM'))
+                    (this.startDate.format(format) == this.leftCalendar.month.format(format) || this.startDate.format(format) == this.rightCalendar.month.format(format))
                     &&
-                    (this.endDate.format('YYYY-MM') == this.leftCalendar.month.format('YYYY-MM') || this.endDate.format('YYYY-MM') == this.rightCalendar.month.format('YYYY-MM'))
+                    (this.endDate.format(format) == this.leftCalendar.month.format(format) || this.endDate.format(format) == this.rightCalendar.month.format(format))
                     ) {
                     return;
                 }
@@ -554,18 +579,18 @@
                 if (!this.linkedCalendars && (this.endDate.month() != this.startDate.month() || this.endDate.year() != this.startDate.year())) {
                     this.rightCalendar.month = this.endDate.clone().date(2);
                 } else {
-                    this.rightCalendar.month = this.startDate.clone().date(2).add(1, 'month');
+                    this.rightCalendar.month = this.startDate.clone().date(2).add(1, unit);
                 }
 
             } else {
-                if (this.leftCalendar.month.format('YYYY-MM') != this.startDate.format('YYYY-MM') && this.rightCalendar.month.format('YYYY-MM') != this.startDate.format('YYYY-MM')) {
+                if (this.leftCalendar.month.format(format) != this.startDate.format(format) && this.rightCalendar.month.format(format) != this.startDate.format(format)) {
                     this.leftCalendar.month = this.startDate.clone().date(2);
-                    this.rightCalendar.month = this.startDate.clone().date(2).add(1, 'month');
+                    this.rightCalendar.month = this.startDate.clone().date(2).add(1, unit);
                 }
             }
             if (this.maxDate && this.linkedCalendars && !this.singleDatePicker && this.rightCalendar.month > this.maxDate) {
               this.rightCalendar.month = this.maxDate.clone().date(2);
-              this.leftCalendar.month = this.maxDate.clone().date(2).subtract(1, 'month');
+              this.leftCalendar.month = this.maxDate.clone().date(2).subtract(1, unit);
             }
         },
 
@@ -641,35 +666,54 @@
             calendar.firstDay = firstDay;
             calendar.lastDay = lastDay;
 
-            for (var i = 0; i < 6; i++) {
-                calendar[i] = [];
-            }
+            if (this.minViewMode === 'month') {
 
-            //populate the calendar with date objects
-            var startDay = daysInLastMonth - dayOfWeek + this.locale.firstDay + 1;
-            if (startDay > daysInLastMonth)
-                startDay -= 7;
+                var curDate = moment([year, 0, 1]);
+                if (side === 'right') curDate = curDate.endOf('month');
 
-            if (dayOfWeek == this.locale.firstDay)
-                startDay = daysInLastMonth - 6;
-
-            var curDate = moment([lastYear, lastMonth, startDay, 12, minute, second]);
-
-            var col, row;
-            for (var i = 0, col = 0, row = 0; i < 42; i++, col++, curDate = moment(curDate).add(24, 'hour')) {
-                if (i > 0 && col % 7 === 0) {
-                    col = 0;
-                    row++;
-                }
-                calendar[row][col] = curDate.clone().hour(hour).minute(minute).second(second);
-                curDate.hour(12);
-
-                if (this.minDate && calendar[row][col].format('YYYY-MM-DD') == this.minDate.format('YYYY-MM-DD') && calendar[row][col].isBefore(this.minDate) && side == 'left') {
-                    calendar[row][col] = this.minDate.clone();
+                //initialize a 3 rows x 4 columns array for the calendar
+                for (var i = 0; i < 3; i++) {
+                    calendar[i] = [];
+                    for (var j = 0; j < 4; j++) {
+                        calendar[i][j] = curDate.clone();
+                        curDate = curDate.add(1, 'month');
+                        if (side === 'right') curDate = curDate.endOf('month');
+                    }
                 }
 
-                if (this.maxDate && calendar[row][col].format('YYYY-MM-DD') == this.maxDate.format('YYYY-MM-DD') && calendar[row][col].isAfter(this.maxDate) && side == 'right') {
-                    calendar[row][col] = this.maxDate.clone();
+            } else {
+
+                for (var i = 0; i < 6; i++) {
+                    calendar[i] = [];
+                }
+
+                //populate the calendar with date objects
+                var startDay = daysInLastMonth - dayOfWeek + this.locale.firstDay + 1;
+                if (startDay > daysInLastMonth)
+                    startDay -= 7;
+
+                if (dayOfWeek == this.locale.firstDay)
+                    startDay = daysInLastMonth - 6;
+
+                var curDate = moment([lastYear, lastMonth, startDay, 12, minute, second]);
+
+                var col, row;
+                for (var i = 0, col = 0, row = 0; i < 42; i++, col++, curDate = moment(curDate).add(24, 'hour')) {
+                    if (i > 0 && col % 7 === 0) {
+                        col = 0;
+                        row++;
+                    }
+                    calendar[row][col] = curDate.clone().hour(hour).minute(minute).second(second);
+                    curDate.hour(12);
+
+                    if (this.minDate && calendar[row][col].format('YYYY-MM-DD') == this.minDate.format('YYYY-MM-DD') && calendar[row][col].isBefore(this.minDate) && side == 'left') {
+                        calendar[row][col] = this.minDate.clone();
+                    }
+
+                    if (this.maxDate && calendar[row][col].format('YYYY-MM-DD') == this.maxDate.format('YYYY-MM-DD') && calendar[row][col].isAfter(this.maxDate) && side == 'right') {
+                        calendar[row][col] = this.maxDate.clone();
+                    }
+
                 }
 
             }
@@ -704,7 +748,7 @@
                 html += '<th></th>';
             }
 
-            var dateHtml = this.locale.monthNames[calendar[1][1].month()] + calendar[1][1].format(" YYYY");
+            var dateHtml = calendar[1][1].format(this.minViewMode === 'month' ? 'YYYY' : 'MMM YYYY');
 
             if (this.showDropdowns) {
                 var currentMonth = calendar[1][1].month();
@@ -736,10 +780,10 @@
                 }
                 yearHtml += '</select>';
 
-                dateHtml = monthHtml + yearHtml;
+                dateHtml = this.minViewMode === 'month' ? yearHtml : monthHtml + yearHtml;
             }
 
-            html += '<th colspan="5" class="month">' + dateHtml + '</th>';
+            html += '<th colspan="' + (this.minViewMode === 'month' ? 2 : 5) + '" class="month">' + dateHtml + '</th>';
             if ((!maxDate || maxDate.isAfter(calendar.lastDay)) && (!this.linkedCalendars || side == 'right' || this.singleDatePicker)) {
                 html += '<th class="next available"><span></span></th>';
             } else {
@@ -747,17 +791,21 @@
             }
 
             html += '</tr>';
-            html += '<tr>';
 
-            // add week number label
-            if (this.showWeekNumbers || this.showISOWeekNumbers)
-                html += '<th class="week">' + this.locale.weekLabel + '</th>';
+            if (this.minViewMode === 'day') {
+                html += '<tr>';
 
-            $.each(this.locale.daysOfWeek, function(index, dayOfWeek) {
-                html += '<th>' + dayOfWeek + '</th>';
-            });
+                // add week number label
+                if (this.showWeekNumbers || this.showISOWeekNumbers)
+                    html += '<th class="week">' + this.locale.weekLabel + '</th>';
 
-            html += '</tr>';
+                $.each(this.locale.daysOfWeek, function(index, dayOfWeek) {
+                    html += '<th>' + dayOfWeek + '</th>';
+                });
+
+                html += '</tr>';
+            }
+
             html += '</thead>';
             html += '<tbody>';
 
@@ -770,7 +818,9 @@
                 }
             }
 
-            for (var row = 0; row < 6; row++) {
+            var format = this.minViewMode === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD';
+
+            for (var row = 0; row < calendar.length; row++) {
                 html += '<tr>';
 
                 // add week number
@@ -779,7 +829,7 @@
                 else if (this.showISOWeekNumbers)
                     html += '<td class="week">' + calendar[row][0].isoWeek() + '</td>';
 
-                for (var col = 0; col < 7; col++) {
+                for (var col = 0; col < calendar[row].length; col++) {
 
                     var classes = [];
 
@@ -792,7 +842,7 @@
                         classes.push('weekend');
 
                     //grey out the dates in other months displayed at beginning and end of this calendar
-                    if (calendar[row][col].month() != calendar[1][1].month())
+                    if (this.minViewMode === 'day' && calendar[row][col].month() != calendar[1][1].month())
                         classes.push('off', 'ends');
 
                     //don't allow selection of dates before the minimum date
@@ -808,11 +858,11 @@
                         classes.push('off', 'disabled');
 
                     //highlight the currently selected start date
-                    if (calendar[row][col].format('YYYY-MM-DD') == this.startDate.format('YYYY-MM-DD'))
+                    if (calendar[row][col].format(format) == this.startDate.format(format))
                         classes.push('active', 'start-date');
 
                     //highlight the currently selected end date
-                    if (this.endDate != null && calendar[row][col].format('YYYY-MM-DD') == this.endDate.format('YYYY-MM-DD'))
+                    if (this.endDate != null && calendar[row][col].format(format) == this.endDate.format(format))
                         classes.push('active', 'end-date');
 
                     //highlight dates in-between the selected dates
@@ -837,7 +887,7 @@
                     if (!disabled)
                         cname += 'available';
 
-                    html += '<td class="' + cname.replace(/^\s+|\s+$/g, '') + '" data-title="' + 'r' + row + 'c' + col + '">' + calendar[row][col].date() + '</td>';
+                    html += '<td class="' + cname.replace(/^\s+|\s+$/g, '') + '" data-title="' + 'r' + row + 'c' + col + '">' + calendar[row][col].format(this.minViewMode === 'month' ? 'MMM' : 'D') + '</td>';
 
                 }
                 html += '</tr>';
@@ -1201,8 +1251,8 @@
                 this.endDate = dates[1];
 
                 if (!this.timePicker) {
-                    this.startDate.startOf('day');
-                    this.endDate.endOf('day');
+                    this.startDate.startOf(this.minViewMode);
+                    this.endDate.endOf(this.minViewMode);
                 }
 
                 if (!this.alwaysShowCalendars)
@@ -1213,24 +1263,26 @@
 
         clickPrev: function(e) {
             var cal = $(e.target).parents('.drp-calendar');
+            var unit = this.minViewMode === 'month' ? 'year' : 'month';
             if (cal.hasClass('left')) {
-                this.leftCalendar.month.subtract(1, 'month');
+                this.leftCalendar.month.subtract(1, unit);
                 if (this.linkedCalendars)
-                    this.rightCalendar.month.subtract(1, 'month');
+                    this.rightCalendar.month.subtract(1, unit).endOf('month');
             } else {
-                this.rightCalendar.month.subtract(1, 'month');
+                this.rightCalendar.month.subtract(1, unit).endOf('month');
             }
             this.updateCalendars();
         },
 
         clickNext: function(e) {
             var cal = $(e.target).parents('.drp-calendar');
+            var unit = this.minViewMode === 'month' ? 'year' : 'month';
             if (cal.hasClass('left')) {
-                this.leftCalendar.month.add(1, 'month');
+                this.leftCalendar.month.add(1, unit);
             } else {
-                this.rightCalendar.month.add(1, 'month');
+                this.rightCalendar.month.add(1, unit).endOf('month');
                 if (this.linkedCalendars)
-                    this.leftCalendar.month.add(1, 'month');
+                    this.leftCalendar.month.add(1, unit);
             }
             this.updateCalendars();
         },
@@ -1292,7 +1344,7 @@
             // * if one of the inputs above the calendars was focused, cancel that manual input
             //
 
-            if (this.endDate || date.isBefore(this.startDate, 'day')) { //picking start
+            if (this.endDate || date.isBefore(this.startDate, this.minViewMode)) { //picking start
                 if (this.timePicker) {
                     var hour = parseInt(this.container.find('.left .hourselect').val(), 10);
                     if (!this.timePicker24Hour) {
@@ -1340,7 +1392,7 @@
             }
 
             if (this.singleDatePicker) {
-                this.setEndDate(this.startDate);
+                this.setEndDate(this.minViewMode === 'month' ? this.startDate.clone().endOf('month') : this.startDate);
                 if (!this.timePicker)
                     this.clickApply();
             }
@@ -1366,7 +1418,8 @@
                     }
                 } else {
                     //ignore times when comparing dates if time picker is not enabled
-                    if (this.startDate.format('YYYY-MM-DD') == this.ranges[range][0].format('YYYY-MM-DD') && this.endDate.format('YYYY-MM-DD') == this.ranges[range][1].format('YYYY-MM-DD')) {
+                    var format = this.minViewMode === 'month' ? 'YYYY-MM' : 'YYYY-MM-DD';
+                    if (this.startDate.format(format) == this.ranges[range][0].format(format) && this.endDate.format(format) == this.ranges[range][1].format(format)) {
                         customRange = false;
                         this.chosenLabel = this.container.find('.ranges li:eq(' + i + ')').addClass('active').attr('data-range-key');
                         break;

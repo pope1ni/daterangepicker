@@ -163,6 +163,14 @@
               </div>
 
               <div class="form-group">
+                <label for="minViewMode">minViewMode</label>
+                <select id="minViewMode" class="form-control">
+                  <option value="day" selected>day</option>
+                  <option value="month">month</option>
+                </select>
+              </div>
+
+              <div class="form-group">
                 <label for="opens">opens</label>
                 <select id="opens" class="form-control">
                   <option value="right" selected>right</option>
@@ -345,6 +353,9 @@
 
           if ($('#maxDate').val().length)
             options.maxDate = $('#maxDate').val();
+
+          if ($('#minViewMode').val().length && $('#minViewMode').val() != 'day')
+            options.minViewMode = $('#minViewMode').val();
 
           if ($('#opens').val().length && $('#opens').val() != 'right')
             options.opens = $('#opens').val();

@@ -237,7 +237,7 @@
   width: 56%;
 }
 
-.daterangepicker select.yearselect {
+.daterangepicker select.yearselect:not(:only-child) {
   width: 40%;
 }
 
