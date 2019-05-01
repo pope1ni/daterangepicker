@@ -742,7 +742,16 @@
             if (this.showWeekNumbers || this.showISOWeekNumbers)
                 html += '<th></th>';
 
-            if ((!minDate || minDate.isBefore(calendar.firstDay)) && (!this.linkedCalendars || side == 'left')) {
+            var currentMonth = calendar[1][1].month();
+            var currentYear = calendar[1][1].year();
+            var maxYear = (maxDate && maxDate.year()) || (this.maxYear);
+            var minYear = (minDate && minDate.year()) || (this.minYear);
+
+            if (
+                (!minDate || minDate.isBefore(calendar.firstDay)) &&
+                !(this.minViewMode === 'month' && minYear === currentYear) &&
+                (!this.linkedCalendars || side == 'left')
+            ) {
                 html += '<th class="prev available"><span></span></th>';
             } else {
                 html += '<th></th>';
@@ -751,10 +760,6 @@
             var dateHtml = calendar[1][1].format(this.minViewMode === 'month' ? 'YYYY' : 'MMM YYYY');
 
             if (this.showDropdowns) {
-                var currentMonth = calendar[1][1].month();
-                var currentYear = calendar[1][1].year();
-                var maxYear = (maxDate && maxDate.year()) || (this.maxYear);
-                var minYear = (minDate && minDate.year()) || (this.minYear);
                 var inMinYear = currentYear == minYear;
                 var inMaxYear = currentYear == maxYear;
 
@@ -784,7 +789,11 @@
             }
 
             html += '<th colspan="' + (this.minViewMode === 'month' ? 2 : 5) + '" class="month">' + dateHtml + '</th>';
-            if ((!maxDate || maxDate.isAfter(calendar.lastDay)) && (!this.linkedCalendars || side == 'right' || this.singleDatePicker)) {
+            if (
+                (!maxDate || maxDate.isAfter(calendar.lastDay)) &&
+                !(this.minViewMode === 'month' && maxYear === currentYear) &&
+                (!this.linkedCalendars || side == 'right' || this.singleDatePicker)
+            ) {
                 html += '<th class="next available"><span></span></th>';
             } else {
                 html += '<th></th>';
