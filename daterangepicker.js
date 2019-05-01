@@ -1244,6 +1244,7 @@
             var label = e.target.getAttribute('data-range-key');
             this.chosenLabel = label;
             if (label == this.locale.customRangeLabel) {
+                $(e.target).addClass('active').siblings().removeClass('active');
                 this.showCalendars();
             } else {
                 var dates = this.ranges[label];
